@@ -31,7 +31,7 @@
     "all": "pnpm run format && pnpm run lint && pnpm run package"
   },
   "dependencies": {
-    "@actions/core": "^2.0.2",
+    "@actions/core": "^3.0.0",
     "@distr-sh/distr-sdk": "^2.5.2"
   },
   "devDependencies": {
