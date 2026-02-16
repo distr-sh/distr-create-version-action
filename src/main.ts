@@ -2,6 +2,19 @@ import * as core from '@actions/core';
 import {DistrService, HelmChartType} from '@distr-sh/distr-sdk';
 import * as fs from 'node:fs/promises';
 
+type ResourceInput = {
+  name: string;
+  content?: string;
+  path?: string;
+  visibleToCustomers?: boolean;
+};
+
+type Resource = {
+  name: string;
+  content: string;
+  visibleToCustomers: boolean;
+};
+
 /**
  * The main function for the action.
  *
@@ -24,6 +37,7 @@ export async function run(): Promise<void> {
     const templatePath = core.getInput('template-file');
     const templateFile = templatePath ? await fs.readFile(templatePath, 'utf8') : undefined;
     const linkTemplate = core.getInput('link-template') || undefined;
+    const resources = await parseAndResolveResources(core.getInput('resources'));
 
     let versionId: string;
     if (composePath !== '') {
@@ -32,7 +46,8 @@ export async function run(): Promise<void> {
         composeFile,
         templateFile,
         linkTemplate,
-      });
+        resources,
+      } as Parameters<typeof distr.createDockerApplicationVersion>[2]);
       if (!version.id) {
         throw new Error('Created version does not have an ID');
       }
@@ -53,7 +68,8 @@ export async function run(): Promise<void> {
         baseValuesFile,
         templateFile,
         linkTemplate,
-      });
+        resources,
+      } as Parameters<typeof distr.createKubernetesApplicationVersion>[2]);
       if (!version.id) {
         throw new Error('Created version does not have an ID');
       }
@@ -76,6 +92,63 @@ export async function run(): Promise<void> {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message);
   }
+}
+
+async function parseAndResolveResources(input: string): Promise<Resource[] | undefined> {
+  if (!input) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input);
+  } catch {
+    throw new Error('Input "resources" is not valid JSON');
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('Input "resources" must be a JSON array');
+  }
+
+  const resources: Resource[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const item = parsed[i] as ResourceInput;
+
+    if (!item.name || typeof item.name !== 'string') {
+      throw new Error(`Resource [${i}]: "name" is required and must be a string`);
+    }
+
+    const hasContent = item.content !== undefined && item.content !== '';
+    const hasPath = item.path !== undefined && item.path !== '';
+
+    if (hasContent && hasPath) {
+      throw new Error(`Resource [${i}] "${item.name}": specify either "content" or "path", not both`);
+    }
+    if (!hasContent && !hasPath) {
+      throw new Error(`Resource [${i}] "${item.name}": either "content" or "path" is required`);
+    }
+
+    let content: string;
+    if (hasPath) {
+      try {
+        content = await fs.readFile(item.path!, 'utf8');
+      } catch (err) {
+        throw new Error(
+          `Resource [${i}] "${item.name}": failed to read file "${item.path}": ${err instanceof Error ? err.message : err}`
+        );
+      }
+    } else {
+      content = item.content!;
+    }
+
+    resources.push({
+      name: item.name,
+      content,
+      visibleToCustomers: item.visibleToCustomers ?? true,
+    });
+  }
+
+  return resources.length > 0 ? resources : undefined;
 }
 
 function requiredInput(id: string): string {

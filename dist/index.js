@@ -30449,7 +30449,7 @@ class DistrService {
     async updateDeployment(params) {
         const { deploymentTargetId, applicationId, applicationVersionId, kubernetesDeployment } = params;
         const existing = await this.client.getDeploymentTarget(deploymentTargetId);
-        const existingDeployment = existing.deployments.find((d) => d.applicationId === applicationId);
+        const existingDeployment = existing.deployments.find((d) => d.application.id === applicationId);
         if (!existingDeployment) {
             throw new Error(`cannot update deployment, no deployment found for application ${applicationId}`);
         }
@@ -30471,7 +30471,7 @@ class DistrService {
         const updatedTargets = [];
         const skippedTargets = [];
         for (const target of allTargets) {
-            const deployment = target.deployments?.find((d) => d.applicationId === applicationId);
+            const deployment = target.deployments?.find((d) => d.application.id === applicationId);
             if (!deployment) {
                 skippedTargets.push({
                     deploymentTargetId: target.id,
@@ -30523,11 +30523,11 @@ class DistrService {
         }
         const results = [];
         for (const deployment of existing.deployments) {
-            const { app, newerVersions } = await this.getNewerVersions(deployment.applicationId, deployment.applicationVersionId);
+            const { app, newerVersions } = await this.getNewerVersions(deployment.application.id, deployment.applicationVersionId);
             results.push({
                 deployment: {
                     id: deployment.id,
-                    applicationId: deployment.applicationId,
+                    applicationId: deployment.application.id,
                     applicationVersionId: deployment.applicationVersionId,
                 },
                 application: app,
@@ -30605,6 +30605,7 @@ async function run() {
         const templatePath = coreExports.getInput('template-file');
         const templateFile = templatePath ? await fs.readFile(templatePath, 'utf8') : undefined;
         const linkTemplate = coreExports.getInput('link-template') || undefined;
+        const resources = await parseAndResolveResources(coreExports.getInput('resources'));
         let versionId;
         if (composePath !== '') {
             const composeFile = await fs.readFile(composePath, 'utf8');
@@ -30612,6 +30613,7 @@ async function run() {
                 composeFile,
                 templateFile,
                 linkTemplate,
+                resources,
             });
             if (!version.id) {
                 throw new Error('Created version does not have an ID');
@@ -30634,6 +30636,7 @@ async function run() {
                 baseValuesFile,
                 templateFile,
                 linkTemplate,
+                resources,
             });
             if (!version.id) {
                 throw new Error('Created version does not have an ID');
@@ -30658,6 +30661,54 @@ async function run() {
         if (error instanceof Error)
             coreExports.setFailed(error.message);
     }
+}
+async function parseAndResolveResources(input) {
+    if (!input) {
+        return undefined;
+    }
+    let parsed;
+    try {
+        parsed = JSON.parse(input);
+    }
+    catch {
+        throw new Error('Input "resources" is not valid JSON');
+    }
+    if (!Array.isArray(parsed)) {
+        throw new Error('Input "resources" must be a JSON array');
+    }
+    const resources = [];
+    for (let i = 0; i < parsed.length; i++) {
+        const item = parsed[i];
+        if (!item.name || typeof item.name !== 'string') {
+            throw new Error(`Resource [${i}]: "name" is required and must be a string`);
+        }
+        const hasContent = item.content !== undefined && item.content !== '';
+        const hasPath = item.path !== undefined && item.path !== '';
+        if (hasContent && hasPath) {
+            throw new Error(`Resource [${i}] "${item.name}": specify either "content" or "path", not both`);
+        }
+        if (!hasContent && !hasPath) {
+            throw new Error(`Resource [${i}] "${item.name}": either "content" or "path" is required`);
+        }
+        let content;
+        if (hasPath) {
+            try {
+                content = await fs.readFile(item.path, 'utf8');
+            }
+            catch (err) {
+                throw new Error(`Resource [${i}] "${item.name}": failed to read file "${item.path}": ${err instanceof Error ? err.message : err}`);
+            }
+        }
+        else {
+            content = item.content;
+        }
+        resources.push({
+            name: item.name,
+            content,
+            visibleToCustomers: item.visibleToCustomers ?? true,
+        });
+    }
+    return resources.length > 0 ? resources : undefined;
 }
 function requiredInput(id) {
     const val = coreExports.getInput(id);

@@ -54,6 +54,17 @@ inputs:
       to dynamically generate links based on deployment environment variables.
       Example: http://{{ .Env.HELLO_DISTR_HOST }}
     required: false
+  resources:
+    description: |
+      JSON array of resources to attach to the application version.
+      Each resource must have a "name" and either "content" (inline string) or "path" (file path on the runner).
+      Optionally set "visibleToCustomers" (defaults to true).
+      Example:
+        [
+          { "name": "Getting Started", "path": "./docs/getting-started.md", "visibleToCustomers": true },
+          { "name": "Release Notes", "content": "# v1.0.0\n\nInitial release." }
+        ]
+    required: false
   update-deployments:
     description: |
       If set to true, all deployments of the application will be updated to the newly created version.

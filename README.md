@@ -67,6 +67,16 @@ See [action.yml](action.yml).
     # Optional
     link-template: ''
 
+    # JSON array of resources (markdown documents) to attach to the application version.
+    # Each resource must have a "name" and either inline "content" or a "path" to a file on the runner.
+    # Optionally set "visibleToCustomers" per resource (defaults to true).
+    # Optional
+    resources: |
+      [
+        { "name": "Getting Started", "path": "./docs/getting-started.md", "visibleToCustomers": true },
+        { "name": "Release Notes", "content": "# v1.0.0\n\nInitial release." }
+      ]
+
     # If set to true, all deployments of the application will be updated to the newly created version.
     # This will update all deployment targets where this application is deployed.
     # Optional, defaults to false
@@ -96,6 +106,53 @@ See [action.yml](action.yml).
   id: output
   run: echo "${{ steps.distr-create-version.outputs.created-version-id }}"
 ```
+
+**Docker with Resources Example**
+
+```yaml
+- name: Checkout
+  id: checkout
+  uses: actions/checkout@v4
+
+- name: Create Distr Version
+  id: distr-create-version
+  uses: distr-sh/distr-create-version-action@v1
+  with:
+    api-token: ${{ secrets.DISTR_API_TOKEN }}
+    application-id: '7fa566b3-a20e-4b09-814c-5193c1469f7c'
+    version-name: 'v1.0.0'
+    compose-file: ${{ github.workspace }}/docker-compose-prod.yml
+    resources: |
+      [
+        {
+          "name": "Getting Started",
+          "path": "${{ github.workspace }}/docs/getting-started.md",
+          "visibleToCustomers": true
+        },
+        {
+          "name": "Internal Notes",
+          "content": "# Internal Notes\n\nThis version includes database migration changes.",
+          "visibleToCustomers": false
+        }
+      ]
+
+- name: Print Application Version ID
+  id: output
+  run: echo "${{ steps.distr-create-version.outputs.created-version-id }}"
+```
+
+### Resources Schema
+
+Each resource in the JSON array supports the following fields:
+
+| Field                | Type    | Required | Default | Description                                                |
+| -------------------- | ------- | -------- | ------- | ---------------------------------------------------------- |
+| `name`               | string  | yes      |         | Display name of the resource                               |
+| `content`            | string  | no\*     |         | Inline markdown content                                    |
+| `path`               | string  | no\*     |         | Absolute path to a file on the runner to read content from |
+| `visibleToCustomers` | boolean | no       | `true`  | Whether the resource is visible to customers               |
+
+\* Exactly one of `content` or `path` must be provided per resource.
 
 **Helm Example**
 
