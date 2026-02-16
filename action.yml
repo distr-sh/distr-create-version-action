@@ -60,10 +60,12 @@ inputs:
       Each resource must have a "name" and either "content" (inline string) or "path" (file path on the runner).
       Optionally set "visibleToCustomers" (defaults to true).
       Example:
+        ```json
         [
           { "name": "Getting Started", "path": "./docs/getting-started.md", "visibleToCustomers": true },
           { "name": "Release Notes", "content": "# v1.0.0\n\nInitial release." }
         ]
+        ```
     required: false
   update-deployments:
     description: |

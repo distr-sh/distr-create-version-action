@@ -28084,6 +28084,9 @@ class Client {
         });
         return this.handleResponse(response, 'POST', path);
     }
+    async getApplicationVersionResources(applicationId, versionId) {
+        return this.get(`applications/${applicationId}/versions/${versionId}/resources`);
+    }
     async getDeploymentTargets() {
         return this.get('deployment-targets');
     }
@@ -30909,7 +30912,7 @@ class DistrService {
      * @param data
      */
     async createDockerApplicationVersion(applicationId, name, data) {
-        return this.client.createApplicationVersion(applicationId, { name, linkTemplate: data.linkTemplate ?? '' }, {
+        return this.client.createApplicationVersion(applicationId, { name, linkTemplate: data.linkTemplate ?? '', resources: data.resources }, {
             composeFile: data.composeFile,
             templateFile: data.templateFile,
         });
@@ -30928,6 +30931,7 @@ class DistrService {
             chartVersion: data.chartVersion,
             chartType: data.chartType,
             chartUrl: data.chartUrl,
+            resources: data.resources,
         }, {
             baseValuesFile: data.baseValuesFile,
             templateFile: data.templateFile,
@@ -30979,7 +30983,7 @@ class DistrService {
     async updateDeployment(params) {
         const { deploymentTargetId, applicationId, applicationVersionId, kubernetesDeployment } = params;
         const existing = await this.client.getDeploymentTarget(deploymentTargetId);
-        const existingDeployment = existing.deployments.find((d) => d.applicationId === applicationId);
+        const existingDeployment = existing.deployments.find((d) => d.application.id === applicationId);
         if (!existingDeployment) {
             throw new Error(`cannot update deployment, no deployment found for application ${applicationId}`);
         }
@@ -31001,7 +31005,7 @@ class DistrService {
         const updatedTargets = [];
         const skippedTargets = [];
         for (const target of allTargets) {
-            const deployment = target.deployments?.find((d) => d.applicationId === applicationId);
+            const deployment = target.deployments?.find((d) => d.application.id === applicationId);
             if (!deployment) {
                 skippedTargets.push({
                     deploymentTargetId: target.id,
@@ -31053,11 +31057,11 @@ class DistrService {
         }
         const results = [];
         for (const deployment of existing.deployments) {
-            const { app, newerVersions } = await this.getNewerVersions(deployment.applicationId, deployment.applicationVersionId);
+            const { app, newerVersions } = await this.getNewerVersions(deployment.application.id, deployment.applicationVersionId);
             results.push({
                 deployment: {
                     id: deployment.id,
-                    applicationId: deployment.applicationId,
+                    applicationId: deployment.application.id,
                     applicationVersionId: deployment.applicationVersionId,
                 },
                 application: app,
@@ -31135,14 +31139,17 @@ async function run() {
         const templatePath = getInput('template-file');
         const templateFile = templatePath ? await fs$1.readFile(templatePath, 'utf8') : undefined;
         const linkTemplate = getInput('link-template') || undefined;
+        const resources = await parseAndResolveResources(getInput('resources'));
         let versionId;
         if (composePath !== '') {
             const composeFile = await fs$1.readFile(composePath, 'utf8');
-            const version = await distr.createDockerApplicationVersion(appId, versionName, {
+            const dockerParams = {
                 composeFile,
                 templateFile,
                 linkTemplate,
-            });
+                resources,
+            };
+            const version = await distr.createDockerApplicationVersion(appId, versionName, dockerParams);
             if (!version.id) {
                 throw new Error('Created version does not have an ID');
             }
@@ -31156,7 +31163,7 @@ async function run() {
             const chartUrl = requiredInput('chart-url');
             const baseValuesPath = getInput('base-values-file');
             const baseValuesFile = baseValuesPath ? await fs$1.readFile(baseValuesPath, 'utf8') : undefined;
-            const version = await distr.createKubernetesApplicationVersion(appId, versionName, {
+            const k8sParams = {
                 chartName,
                 chartVersion,
                 chartType,
@@ -31164,7 +31171,9 @@ async function run() {
                 baseValuesFile,
                 templateFile,
                 linkTemplate,
-            });
+                resources,
+            };
+            const version = await distr.createKubernetesApplicationVersion(appId, versionName, k8sParams);
             if (!version.id) {
                 throw new Error('Created version does not have an ID');
             }
@@ -31188,6 +31197,66 @@ async function run() {
         if (error instanceof Error)
             setFailed(error.message);
     }
+}
+async function parseAndResolveResources(input) {
+    if (!input) {
+        return undefined;
+    }
+    let parsed;
+    try {
+        parsed = JSON.parse(input);
+    }
+    catch {
+        throw new Error('Input "resources" is not valid JSON');
+    }
+    if (!Array.isArray(parsed)) {
+        throw new Error('Input "resources" must be a JSON array');
+    }
+    const resources = [];
+    for (let i = 0; i < parsed.length; i++) {
+        const item = parsed[i];
+        if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+            throw new Error(`Resource [${i}]: must be a JSON object`);
+        }
+        if (!item.name || typeof item.name !== 'string') {
+            throw new Error(`Resource [${i}]: "name" is required and must be a string`);
+        }
+        if (item.content !== undefined && typeof item.content !== 'string') {
+            throw new Error(`Resource [${i}] "${item.name}": "content" must be a string when provided`);
+        }
+        if (item.path !== undefined && typeof item.path !== 'string') {
+            throw new Error(`Resource [${i}] "${item.name}": "path" must be a string when provided`);
+        }
+        if (item.visibleToCustomers !== undefined && typeof item.visibleToCustomers !== 'boolean') {
+            throw new Error(`Resource [${i}] "${item.name}": "visibleToCustomers" must be a boolean when provided`);
+        }
+        const hasContent = typeof item.content === 'string' && item.content.trim() !== '';
+        const hasPath = typeof item.path === 'string' && item.path.trim() !== '';
+        if (hasContent && hasPath) {
+            throw new Error(`Resource [${i}] "${item.name}": specify either "content" or "path", not both`);
+        }
+        if (!hasContent && !hasPath) {
+            throw new Error(`Resource [${i}] "${item.name}": either "content" or "path" is required`);
+        }
+        let content;
+        if (hasPath) {
+            try {
+                content = await fs$1.readFile(item.path, 'utf8');
+            }
+            catch (err) {
+                throw new Error(`Resource [${i}] "${item.name}": failed to read file "${item.path}": ${err instanceof Error ? err.message : err}`);
+            }
+        }
+        else {
+            content = item.content;
+        }
+        resources.push({
+            name: item.name,
+            content,
+            visibleToCustomers: item.visibleToCustomers ?? true,
+        });
+    }
+    return resources.length > 0 ? resources : undefined;
 }
 function requiredInput(id) {
     const val = getInput(id);

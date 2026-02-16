@@ -2,18 +2,14 @@ import * as core from '@actions/core';
 import {DistrService, HelmChartType} from '@distr-sh/distr-sdk';
 import * as fs from 'node:fs/promises';
 
-type ResourceInput = {
-  name: string;
-  content?: string;
-  path?: string;
-  visibleToCustomers?: boolean;
-};
-
 type Resource = {
   name: string;
   content: string;
   visibleToCustomers: boolean;
 };
+
+type DockerVersionParams = Parameters<typeof DistrService.prototype.createDockerApplicationVersion>[2];
+type KubernetesVersionParams = Parameters<typeof DistrService.prototype.createKubernetesApplicationVersion>[2];
 
 /**
  * The main function for the action.
@@ -42,12 +38,13 @@ export async function run(): Promise<void> {
     let versionId: string;
     if (composePath !== '') {
       const composeFile = await fs.readFile(composePath, 'utf8');
-      const version = await distr.createDockerApplicationVersion(appId, versionName, {
+      const dockerParams: DockerVersionParams & {resources?: Resource[]} = {
         composeFile,
         templateFile,
         linkTemplate,
         resources,
-      } as Parameters<typeof distr.createDockerApplicationVersion>[2]);
+      };
+      const version = await distr.createDockerApplicationVersion(appId, versionName, dockerParams);
       if (!version.id) {
         throw new Error('Created version does not have an ID');
       }
@@ -60,7 +57,7 @@ export async function run(): Promise<void> {
       const chartUrl = requiredInput('chart-url');
       const baseValuesPath = core.getInput('base-values-file');
       const baseValuesFile = baseValuesPath ? await fs.readFile(baseValuesPath, 'utf8') : undefined;
-      const version = await distr.createKubernetesApplicationVersion(appId, versionName, {
+      const k8sParams: KubernetesVersionParams & {resources?: Resource[]} = {
         chartName,
         chartVersion,
         chartType,
@@ -69,7 +66,8 @@ export async function run(): Promise<void> {
         templateFile,
         linkTemplate,
         resources,
-      } as Parameters<typeof distr.createKubernetesApplicationVersion>[2]);
+      };
+      const version = await distr.createKubernetesApplicationVersion(appId, versionName, k8sParams);
       if (!version.id) {
         throw new Error('Created version does not have an ID');
       }
@@ -112,14 +110,28 @@ async function parseAndResolveResources(input: string): Promise<Resource[] | und
 
   const resources: Resource[] = [];
   for (let i = 0; i < parsed.length; i++) {
-    const item = parsed[i] as ResourceInput;
+    const item = parsed[i] as Record<string, unknown>;
+
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+      throw new Error(`Resource [${i}]: must be a JSON object`);
+    }
 
     if (!item.name || typeof item.name !== 'string') {
       throw new Error(`Resource [${i}]: "name" is required and must be a string`);
     }
 
-    const hasContent = item.content !== undefined && item.content !== '';
-    const hasPath = item.path !== undefined && item.path !== '';
+    if (item.content !== undefined && typeof item.content !== 'string') {
+      throw new Error(`Resource [${i}] "${item.name}": "content" must be a string when provided`);
+    }
+    if (item.path !== undefined && typeof item.path !== 'string') {
+      throw new Error(`Resource [${i}] "${item.name}": "path" must be a string when provided`);
+    }
+    if (item.visibleToCustomers !== undefined && typeof item.visibleToCustomers !== 'boolean') {
+      throw new Error(`Resource [${i}] "${item.name}": "visibleToCustomers" must be a boolean when provided`);
+    }
+
+    const hasContent = typeof item.content === 'string' && item.content.trim() !== '';
+    const hasPath = typeof item.path === 'string' && item.path.trim() !== '';
 
     if (hasContent && hasPath) {
       throw new Error(`Resource [${i}] "${item.name}": specify either "content" or "path", not both`);
@@ -131,20 +143,20 @@ async function parseAndResolveResources(input: string): Promise<Resource[] | und
     let content: string;
     if (hasPath) {
       try {
-        content = await fs.readFile(item.path!, 'utf8');
+        content = await fs.readFile(item.path as string, 'utf8');
       } catch (err) {
         throw new Error(
           `Resource [${i}] "${item.name}": failed to read file "${item.path}": ${err instanceof Error ? err.message : err}`
         );
       }
     } else {
-      content = item.content!;
+      content = item.content as string;
     }
 
     resources.push({
-      name: item.name,
+      name: item.name as string,
       content,
-      visibleToCustomers: item.visibleToCustomers ?? true,
+      visibleToCustomers: (item.visibleToCustomers as boolean) ?? true,
     });
   }
 
