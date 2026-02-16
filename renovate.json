@@ -1,6 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "postUpgradeTasks": {
+    "commands": ["pnpm i --frozen-lockfile", "pnpm run package"],
+    "fileFilters": ["dist/**"],
+    "executionMode": "branch"
+  },
   "packageRules": [
     {
       "matchManagers": ["npm", "github-actions"],
