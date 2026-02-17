@@ -57,6 +57,19 @@ jobs:
           # chart-version: 'v7.0.0'
           # base-values-file: ${{ github.workspace }}/.prettierrc.yml
           template-file: ${{ github.workspace }}/.env.example
+          resources: |
+            [
+              {
+                "name": "Inline Resource",
+                "content": "# Test Resource\n\nThis resource was created by the integration test.",
+                "visibleToCustomers": true
+              },
+              {
+                "name": "File Resource",
+                "path": "${{ github.workspace }}/.env.example",
+                "visibleToCustomers": false
+              }
+            ]
           update-deployments: false
 
       - name: Print Application Version ID
