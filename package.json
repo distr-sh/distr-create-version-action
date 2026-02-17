@@ -1,7 +1,7 @@
 {
   "name": "create-distr-version-action",
   "description": "This action creates a new version of a Distr application",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "license": "Apache-2.0",
   "type": "module",
   "private": true,
