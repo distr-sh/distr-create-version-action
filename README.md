@@ -81,6 +81,11 @@ See [action.yml](action.yml).
     # This will update all deployment targets where this application is deployed.
     # Optional, defaults to false
     update-deployments: false
+
+    # If set to true and update-deployments is also true, updated deployments will use the same configuration
+    # as the previous revision.
+    # Optional, defaults to false
+    reuse-deployment-config: false
 ```
 
 **Docker Example**
@@ -101,6 +106,7 @@ See [action.yml](action.yml).
     template-file: ${{ github.workspace }}/template.env
     link-template: 'http://{{ .Env.APP_HOST }}'
     update-deployments: true
+    reuse-deployment-config: true
 
 - name: Print Application Version ID
   id: output
@@ -175,6 +181,7 @@ Each resource in the JSON array supports the following fields:
     template-file: ${{ github.workspace }}/template.yml
     link-template: 'https://{{ .Env.INGRESS_HOST }}'
     update-deployments: true
+    reuse-deployment-config: true
 
 - name: Print Application Version ID
   id: output
@@ -195,7 +202,7 @@ pnpm install
 pnpm run all
 ```
 
-The bundle has to be commited to the repository, as it is used by the action.
+The bundle has to be committed to the repository, as it is used by the action.
 
 #### (Optional) Test your action locally
 
@@ -274,5 +281,5 @@ following steps:
    version.
 1. **Pushing changes to remote:** Finally, the script pushes the necessary
    commits, tags and branches to the remote repository. From here, you will need
-   to create a new release in GitHub so users can easily reference the new tags
+   to create a new release in GitHub, so users can easily reference the new tags
    in their workflows.

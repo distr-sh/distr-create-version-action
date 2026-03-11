@@ -23,6 +23,7 @@ export async function run(): Promise<void> {
     const appId = requiredInput('application-id');
     const versionName = requiredInput('version-name');
     const updateDeployments = core.getBooleanInput('update-deployments');
+    const reuseDeploymentConfig = core.getBooleanInput('reuse-deployment-config');
 
     const distr = new DistrService({
       apiBase: apiBase,
@@ -77,13 +78,23 @@ export async function run(): Promise<void> {
 
     if (updateDeployments) {
       core.info('Updating all deployments to the new version...');
-      const result = await distr.updateAllDeployments(appId, versionId);
+      const result = await distr.updateAllDeployments(appId, versionId, reuseDeploymentConfig);
+
       core.info(`Updated ${result.updatedTargets.length} deployment target(s)`);
+
       if (result.skippedTargets.length > 0) {
         core.info(`Skipped ${result.skippedTargets.length} deployment target(s):`);
         result.skippedTargets.forEach((target) => {
           core.info(`  - ${target.deploymentTargetName}: ${target.reason}`);
         });
+      }
+
+      const skippedDeployments = result.updatedTargets.flatMap((dt) =>
+        dt.skippedDeployments.map((d) => ({deploymentTargetName: dt.deploymentTargetName, ...d}))
+      );
+      if (skippedDeployments.length > 0) {
+        core.info(`Skipped ${skippedDeployments.length} deployment(s):`);
+        skippedDeployments.forEach((d) => core.info(`  - ${d.deploymentTargetName}/${d.deploymentId}: ${d.reason}`));
       }
     }
   } catch (error) {
