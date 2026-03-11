@@ -30999,14 +30999,15 @@ class DistrService {
      * Only updates deployments that are not already on the target version.
      * @param applicationId The application ID to update
      * @param applicationVersionId The target version ID to update to
+     * @param reuseConfigFromCurrentRevision If true, the existing deployment configuration (values YAML, env file, helm options, logsEnabled) will be reused for the update. Otherwise, the defaults will be used.
      */
-    async updateAllDeployments(applicationId, applicationVersionId) {
+    async updateAllDeployments(applicationId, applicationVersionId, reuseConfigFromCurrentRevision = false) {
         const allTargets = await this.client.getDeploymentTargets();
         const updatedTargets = [];
         const skippedTargets = [];
         for (const target of allTargets) {
-            const deployment = target.deployments?.find((d) => d.application.id === applicationId);
-            if (!deployment) {
+            const deployments = target.deployments.filter((d) => d.application.id === applicationId);
+            if (deployments.length === 0) {
                 skippedTargets.push({
                     deploymentTargetId: target.id,
                     deploymentTargetName: target.name,
@@ -31014,34 +31015,55 @@ class DistrService {
                 });
                 continue;
             }
-            if (deployment.applicationVersionId === applicationVersionId) {
+            if (deployments.every((deployment) => deployment.applicationVersionId === applicationVersionId)) {
                 skippedTargets.push({
                     deploymentTargetId: target.id,
                     deploymentTargetName: target.name,
-                    reason: 'Already on target version',
+                    reason: 'All deployments already on target version',
                 });
                 continue;
             }
-            try {
-                await this.client.createOrUpdateDeployment({
+            const updatedTarget = {
+                deploymentTargetId: target.id,
+                deploymentTargetName: target.name,
+                updatedDeployments: [],
+                skippedDeployments: [],
+            };
+            for (const deployment of deployments) {
+                if (deployment.applicationVersionId === applicationVersionId) {
+                    updatedTarget.skippedDeployments.push({
+                        deploymentId: deployment.id,
+                        reason: 'Already on target version',
+                    });
+                    continue;
+                }
+                const deploymentRequest = {
                     deploymentTargetId: target.id,
                     deploymentId: deployment.id,
                     applicationVersionId,
-                });
-                updatedTargets.push({
-                    deploymentTargetId: target.id,
-                    deploymentTargetName: target.name,
-                    previousVersionId: deployment.applicationVersionId,
-                    newVersionId: applicationVersionId,
-                });
+                };
+                if (reuseConfigFromCurrentRevision) {
+                    deploymentRequest.valuesYaml = deployment.valuesYaml;
+                    deploymentRequest.envFileData = deployment.envFileData;
+                    deploymentRequest.logsEnabled = deployment.logsEnabled;
+                    deploymentRequest.helmOptions = deployment.helmOptions;
+                }
+                try {
+                    await this.client.createOrUpdateDeployment(deploymentRequest);
+                    updatedTarget.updatedDeployments.push({
+                        deploymentId: deployment.id,
+                        previousVersionId: deployment.applicationVersionId,
+                        newVersionId: applicationVersionId,
+                    });
+                }
+                catch (error) {
+                    updatedTarget.skippedDeployments.push({
+                        deploymentId: deployment.id,
+                        reason: `Update failed: ${error instanceof Error ? error.message : String(error)}`,
+                    });
+                }
             }
-            catch (error) {
-                skippedTargets.push({
-                    deploymentTargetId: target.id,
-                    deploymentTargetName: target.name,
-                    reason: `Update failed: ${error instanceof Error ? error.message : String(error)}`,
-                });
-            }
+            updatedTargets.push(updatedTarget);
         }
         return { updatedTargets, skippedTargets };
     }
@@ -31131,6 +31153,7 @@ async function run() {
         const appId = requiredInput('application-id');
         const versionName = requiredInput('version-name');
         const updateDeployments = getBooleanInput('update-deployments');
+        const reuseDeploymentConfig = getBooleanInput('reuse-deployment-config');
         const distr = new DistrService({
             apiBase: apiBase,
             apiKey: token,
@@ -31182,13 +31205,18 @@ async function run() {
         }
         if (updateDeployments) {
             info('Updating all deployments to the new version...');
-            const result = await distr.updateAllDeployments(appId, versionId);
+            const result = await distr.updateAllDeployments(appId, versionId, reuseDeploymentConfig);
             info(`Updated ${result.updatedTargets.length} deployment target(s)`);
             if (result.skippedTargets.length > 0) {
                 info(`Skipped ${result.skippedTargets.length} deployment target(s):`);
                 result.skippedTargets.forEach((target) => {
                     info(`  - ${target.deploymentTargetName}: ${target.reason}`);
                 });
+            }
+            const skippedDeployments = result.updatedTargets.flatMap((dt) => dt.skippedDeployments.map((d) => ({ deploymentTargetName: dt.deploymentTargetName, ...d })));
+            if (skippedDeployments.length > 0) {
+                info(`Skipped ${skippedDeployments.length} deployment(s):`);
+                skippedDeployments.forEach((d) => info(`  - ${d.deploymentTargetName}/${d.deploymentId}: ${d.reason}`));
             }
         }
     }
