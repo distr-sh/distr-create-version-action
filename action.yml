@@ -25,15 +25,18 @@ inputs:
     description: Name of the version that will be created
     required: true
   compose-file:
-    description: Absolute path to the Docker Compose File inside the runner (required for
+    description:
+      Absolute path to the Docker Compose File inside the runner (required for
       docker applications).
     required: false
   chart-type:
-    description: 'Helm Chart Type (required for helm applications, allowed: "repository" or
+    description:
+      'Helm Chart Type (required for helm applications, allowed: "repository" or
       "oci")'
     required: false
   chart-name:
-    description: Helm Chart Name (required for helm applications if chart-type is
+    description:
+      Helm Chart Name (required for helm applications if chart-type is
       "repository")
     required: false
   chart-version:
@@ -74,8 +77,13 @@ inputs:
       If set to true, all deployments of the application will be updated to the newly created version.
       This will update all deployment targets where this application is deployed.
     required: false
-    default: 'false'
-
+    default: "false"
+  reuse-deployment-config:
+    description: |
+      If set to true and update-deployments is also true, updated deployments will use the same configuration
+      as the previous revision.
+    required: false
+    default: "false"
 outputs:
   created-version-id:
     description: ID of the application version that was created in Distr
