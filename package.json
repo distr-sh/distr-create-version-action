@@ -41,7 +41,7 @@
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/node": "^24.10.13",
     "prettier": "^3.8.1",
-    "rollup": "^4.57.1",
+    "rollup": "^4.59.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
