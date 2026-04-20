@@ -13,7 +13,7 @@ importers:
         version: 3.0.0
       '@distr-sh/distr-sdk':
         specifier: ^2.11.8
-        version: 2.11.8
+        version: 2.20.0
     devDependencies:
       '@github/local-action':
         specifier: ^7.0.0
@@ -160,8 +160,8 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@distr-sh/distr-sdk@2.11.8':
-    resolution: {integrity: sha512-NW8hINQOZ/6JgyLlCscnEZp0G+oUQp+8lLydTL/o2AQBJYo7CgHBADTh4aWU56N3OcwwPhgmt5Fo442EvO6nBA==}
+  '@distr-sh/distr-sdk@2.20.0':
+    resolution: {integrity: sha512-RoXBTqd8kPS2ZWzznlhMQ/gVJrPLaTDcv/6vodPTLV7r9UhT8Uoy5BnTrb6jF0aogWLZo6zpQa9CpX9832/ABA==}
 
   '@esbuild/aix-ppc64@0.27.4':
     resolution: {integrity: sha512-cQPwL2mp2nSmHHJlCyoXgHGhbEPMrEEU5xhkcy3Hs/O7nGZqEpZ2sUtLaL9MORLtDfRvVl2/3PAuEkYZH0Ty8Q==}
@@ -1566,7 +1566,7 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@distr-sh/distr-sdk@2.11.8':
+  '@distr-sh/distr-sdk@2.20.0':
     dependencies:
       semver: 7.7.4
 
