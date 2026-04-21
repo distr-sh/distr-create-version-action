@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24.13
+          node-version: 24.15
           cache: pnpm
 
       - name: Install Dependencies
