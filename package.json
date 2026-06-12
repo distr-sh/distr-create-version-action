@@ -31,21 +31,21 @@
     "all": "pnpm run format && pnpm run lint && pnpm run package"
   },
   "dependencies": {
-    "@actions/core": "^3.0.0",
-    "@distr-sh/distr-sdk": "^2.11.8"
+    "@actions/core": "^3.0.1",
+    "@distr-sh/distr-sdk": "^2.23.0"
   },
   "devDependencies": {
-    "@github/local-action": "^7.0.0",
-    "@rollup/plugin-commonjs": "^29.0.0",
+    "@github/local-action": "^7.0.1",
+    "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
-    "@types/node": "^24.10.13",
-    "prettier": "^3.8.1",
-    "rollup": "^4.57.1",
+    "@types/node": "^25.9.2",
+    "prettier": "^3.8.4",
+    "rollup": "^4.61.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.57.1"
+    "@rollup/rollup-linux-x64-gnu": "^4.61.1"
   }
 }
