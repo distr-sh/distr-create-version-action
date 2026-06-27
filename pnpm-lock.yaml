@@ -13,7 +13,7 @@ importers:
         version: 3.0.1
       '@distr-sh/distr-sdk':
         specifier: ^2.23.0
-        version: 2.23.0
+        version: 2.24.3
     devDependencies:
       '@github/local-action':
         specifier: ^7.0.1
@@ -160,8 +160,8 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@distr-sh/distr-sdk@2.23.0':
-    resolution: {integrity: sha512-HKzR2c9EKChLI0B8XvgoDaqYIW1Heo0wa6vJj+EAwfD5OwaplhlWRDosqYZ0EtY2R1y6qENHi+uudtlxA59PjQ==}
+  '@distr-sh/distr-sdk@2.24.3':
+    resolution: {integrity: sha512-iRL0O1y0kKrX8UDdbb79G6LW84DwfB9O2GLLMHX1geZEZI2+fgRMZG1/OMcPy3eB19kCs4Du7L53h6p6ZR3XqA==}
     engines: {node: 26.x}
 
   '@esbuild/aix-ppc64@0.28.0':
@@ -1184,6 +1184,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.8.5:
+    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   shebang-command@2.0.0:
     resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
     engines: {node: '>=8'}
@@ -1584,9 +1589,9 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@distr-sh/distr-sdk@2.23.0':
+  '@distr-sh/distr-sdk@2.24.3':
     dependencies:
-      semver: 7.8.4
+      semver: 7.8.5
 
   '@esbuild/aix-ppc64@0.28.0':
     optional: true
@@ -2509,6 +2514,8 @@ snapshots:
   semver@6.3.1: {}
 
   semver@7.8.4: {}
+
+  semver@7.8.5: {}
 
   shebang-command@2.0.0:
     dependencies:
