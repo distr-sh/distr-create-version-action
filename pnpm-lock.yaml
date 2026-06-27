@@ -32,7 +32,7 @@ importers:
         version: 25.9.4
       prettier:
         specifier: ^3.8.4
-        version: 3.8.5
+        version: 3.9.0
       rollup:
         specifier: ^4.61.1
         version: 4.62.2
@@ -1133,8 +1133,8 @@ packages:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
 
-  prettier@3.8.5:
-    resolution: {integrity: sha512-zxcTTCedNGJM4R8sj/Cq/F0W/c4iE0afWBcBwMTRtw4WHYP9TWkYjdiH3npPRUYsXQCPR0hTU9yjovOu+E6EQA==}
+  prettier@3.9.0:
+    resolution: {integrity: sha512-LjIqSIC5VYLzs9WedVmJ2ljNAGnU+DteIClbahu4L/DBeWjZ6iT/k1lAYyu9JUh+1xINxWadaPw/Pl63y/agAw==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -2431,7 +2431,7 @@ snapshots:
 
   picomatch@4.0.4: {}
 
-  prettier@3.8.5: {}
+  prettier@3.9.0: {}
 
   process-nextick-args@2.0.1: {}
 
