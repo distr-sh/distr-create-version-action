@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@actions/core": "^3.0.1",
-    "@distr-sh/distr-sdk": "^2.23.0"
+    "@distr-sh/distr-sdk": "^3.0.0"
   },
   "devDependencies": {
     "@github/local-action": "^7.0.1",
