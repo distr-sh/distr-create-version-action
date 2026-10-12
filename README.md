@@ -77,11 +77,13 @@ See [action.yml](action.yml).
         { "name": "Release Notes", "content": "# v1.0.0\n\nInitial release." }
       ]
 
+    # Deprecated: use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates
     # If set to true, all deployments of the application will be updated to the newly created version.
     # This will update all deployment targets where this application is deployed.
     # Optional, defaults to false
     update-deployments: false
 
+    # Deprecated: use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates
     # If set to true and update-deployments is also true, updated deployments will use the same configuration
     # as the previous revision.
     # Optional, defaults to false
@@ -105,8 +107,6 @@ See [action.yml](action.yml).
     compose-file: ${{ github.workspace }}/docker-compose-prod.yml
     template-file: ${{ github.workspace }}/template.env
     link-template: 'http://{{ .Env.APP_HOST }}'
-    update-deployments: true
-    reuse-deployment-config: true
 
 - name: Print Application Version ID
   id: output
@@ -180,8 +180,6 @@ Each resource in the JSON array supports the following fields:
     base-values-file: ${{ github.workspace }}/base-values.yml
     template-file: ${{ github.workspace }}/template.yml
     link-template: 'https://{{ .Env.INGRESS_HOST }}'
-    update-deployments: true
-    reuse-deployment-config: true
 
 - name: Print Application Version ID
   id: output
