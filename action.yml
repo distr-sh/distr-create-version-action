@@ -71,14 +71,22 @@ inputs:
     required: false
   update-deployments:
     description: |
+      Deprecated: use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates
       If set to true, all deployments of the application will be updated to the newly created version.
       This will update all deployment targets where this application is deployed.
+    deprecationMessage: >-
+      It will be removed in a future major version.
+      Use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates
     required: false
     default: 'false'
   reuse-deployment-config:
     description: |
+      Deprecated: use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates
       If set to true and update-deployments is also true, updated deployments will use the same configuration
       as the previous revision.
+    deprecationMessage: >-
+      It will be removed in a future major version.
+      Use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates
     required: false
     default: 'false'
 outputs:

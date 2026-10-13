@@ -28218,6 +28218,14 @@ function error(message, properties = {}) {
     issueCommand('error', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
+ * Adds a warning issue
+ * @param message warning issue message. Errors will be converted to string via toString()
+ * @param properties optional properties to add to the annotation.
+ */
+function warning(message, properties = {}) {
+    issueCommand('warning', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+}
+/**
  * Writes info to log with console.log.
  * @param message info message
  */
@@ -31452,6 +31460,12 @@ async function run() {
         const versionName = requiredInput('version-name');
         const updateDeployments = getBooleanInput('update-deployments');
         const reuseDeploymentConfig = getBooleanInput('reuse-deployment-config');
+        if (updateDeployments) {
+            warnDeprecatedInput('update-deployments');
+        }
+        if (reuseDeploymentConfig) {
+            warnDeprecatedInput('reuse-deployment-config');
+        }
         const distr = new DistrService({
             apiBase: apiBase,
             apiKey: token,
@@ -31583,6 +31597,10 @@ async function parseAndResolveResources(input) {
         });
     }
     return resources.length > 0 ? resources : undefined;
+}
+function warnDeprecatedInput(id) {
+    warning(`The ${id} input is deprecated and will be removed in a future major version. ` +
+        'Use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates');
 }
 function requiredInput(id) {
     const val = getInput(id);

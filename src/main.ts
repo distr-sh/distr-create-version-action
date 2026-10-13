@@ -24,6 +24,12 @@ export async function run(): Promise<void> {
     const versionName = requiredInput('version-name');
     const updateDeployments = core.getBooleanInput('update-deployments');
     const reuseDeploymentConfig = core.getBooleanInput('reuse-deployment-config');
+    if (updateDeployments) {
+      warnDeprecatedInput('update-deployments');
+    }
+    if (reuseDeploymentConfig) {
+      warnDeprecatedInput('reuse-deployment-config');
+    }
 
     const distr = new DistrService({
       apiBase: apiBase,
@@ -172,6 +178,13 @@ async function parseAndResolveResources(input: string): Promise<Resource[] | und
   }
 
   return resources.length > 0 ? resources : undefined;
+}
+
+function warnDeprecatedInput(id: string): void {
+  core.warning(
+    `The ${id} input is deprecated and will be removed in a future major version. ` +
+      'Use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates'
+  );
 }
 
 function requiredInput(id: string): string {
