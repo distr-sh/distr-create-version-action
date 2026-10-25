@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigestsToSemver"],
   "packageRules": [
     {
       "matchManagers": ["npm", "github-actions"],
@@ -18,6 +18,12 @@
     {
       "matchDatasources": ["npm"],
       "matchPackageNames": ["@distr-sh/distr-sdk"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Automerge minor and patch releases of GitHub Actions",
+      "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true
     }
