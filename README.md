@@ -25,6 +25,14 @@ See [action.yml](action.yml).
     # Required
     api-token: ''
 
+    # Extra HTTP headers sent with every Distr API request, one "Name: value" per line,
+    # e.g. the service-token headers of an authenticating proxy in front of a self-hosted Distr:
+    #   extra-headers: |
+    #     CF-Access-Client-Id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+    #     CF-Access-Client-Secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+    # Values are masked in the logs. They cannot override the Authorization header set from api-token.
+    extra-headers: ''
+
     # ID of the Distr application that the version will be created in.
     # You can find and easily copy this ID in the list of applications in the Distr Web UI.
     application-id: ''
