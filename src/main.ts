@@ -198,6 +198,13 @@ export function parseExtraHeaders(input: string): Record<string, string> | undef
       throw new Error('extra-headers: every line must be "Name: value"');
     }
     core.setSecret(value);
+    const lowerName = name.toLowerCase();
+    if (lowerName === 'authorization') {
+      throw new Error('extra-headers: Authorization is set from api-token and cannot be overridden');
+    }
+    if (Object.keys(headers).some((key) => key.toLowerCase() === lowerName)) {
+      throw new Error(`extra-headers: duplicate header ${name}`);
+    }
     headers[name] = value;
   }
   return Object.keys(headers).length > 0 ? headers : undefined;
