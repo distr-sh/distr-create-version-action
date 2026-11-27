@@ -28878,14 +28878,53 @@ class Client {
     async getDeploymentTarget(deploymentTargetId) {
         return this.get(`deployment-targets/${deploymentTargetId}`);
     }
-    async createDeploymentTarget(deploymentTarget) {
-        return this.post('deployment-targets', deploymentTarget);
+    async createDeploymentTarget(request) {
+        return this.post('deployment-targets', request);
     }
     async createOrUpdateDeployment(deploymentRequest) {
         return this.put('deployments', deploymentRequest);
     }
     async createAccessForDeploymentTarget(deploymentTargetId) {
         return this.post(`deployment-targets/${deploymentTargetId}/access-request`);
+    }
+    async cancelReconnectForDeploymentTarget(deploymentTargetId) {
+        await this.send('DELETE', `deployment-targets/${deploymentTargetId}/access-request`);
+    }
+    async getAdvisories(filter = {}) {
+        const params = new URLSearchParams();
+        for (const status of filter.status ?? []) {
+            params.append('status', status);
+        }
+        for (const severity of filter.severity ?? []) {
+            params.append('severity', severity);
+        }
+        for (const tag of filter.tag ?? []) {
+            params.append('tag', tag);
+        }
+        const query = params.toString();
+        return this.get(`advisories${query ? `?${query}` : ''}`);
+    }
+    async getAdvisory(advisoryId) {
+        return this.get(`advisories/${advisoryId}`);
+    }
+    /** Spans undisclosed advisories and is therefore available to the vendor organization only. */
+    async getAdvisoryTags() {
+        return this.get('advisories/tags');
+    }
+    async getAdvisoryImpact(advisoryId) {
+        return this.get(`advisories/${advisoryId}/impact`);
+    }
+    async createAdvisory(request) {
+        return this.post('advisories', request);
+    }
+    async updateAdvisory(advisoryId, request) {
+        return this.put(`advisories/${advisoryId}`, request);
+    }
+    async patchAdvisory(advisoryId, request) {
+        return this.patch(`advisories/${advisoryId}`, request);
+    }
+    async createAdvisoryComment(advisoryId, request) {
+        return this.post(`advisories/${advisoryId}/comments`, request);
     }
     async get(path) {
         const response = await fetch(`${this.config.apiBase}${path}`, {
@@ -28898,20 +28937,17 @@ class Client {
         return await this.handleResponse(response, 'GET', path);
     }
     async post(path, body) {
-        const response = await fetch(`${this.config.apiBase}${path}`, {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                Authorization: `AccessToken ${this.config.apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-        });
-        return await this.handleResponse(response, 'POST', path);
+        return this.send('POST', path, body);
     }
     async put(path, body) {
+        return this.send('PUT', path, body);
+    }
+    async patch(path, body) {
+        return this.send('PATCH', path, body);
+    }
+    async send(method, path, body) {
         const response = await fetch(`${this.config.apiBase}${path}`, {
-            method: 'PUT',
+            method,
             headers: {
                 Accept: 'application/json',
                 Authorization: `AccessToken ${this.config.apiKey}`,
@@ -28919,7 +28955,7 @@ class Client {
             },
             body: JSON.stringify(body),
         });
-        return await this.handleResponse(response, 'PUT', path);
+        return await this.handleResponse(response, method, path);
     }
     async handleResponse(response, method, path) {
         if (response.status < 200 || response.status >= 300) {
@@ -32266,7 +32302,7 @@ class DistrService {
      * base URL can be set. Optionally, a strategy for determining the latest version of an application can be specified –
      * the default is semantic versioning.
      * @param config ClientConfig containing at least an API key and optionally an API base URL
-     * @param latestVersionStrategy Strategy for determining the latest version of an application (default: 'semver')
+     * @param latestVersionStrategy Strategy for applications that do not define one themselves (default: 'semver')
      */
     constructor(config, latestVersionStrategy = 'semver') {
         this.latestVersionStrategy = latestVersionStrategy;
@@ -32330,15 +32366,16 @@ class DistrService {
             type: target.type,
             namespace: target.kubernetes?.namespace,
             scope: target.kubernetes?.scope,
-            deployments: [],
             metricsEnabled: false,
             imageCleanupEnabled: false,
             deploymentLogsEnabled: false,
             autohealEnabled: false,
+            automaticUpdatesEnabled: true,
         });
         await this.client.createOrUpdateDeployment({
             deploymentTargetId: deploymentTarget.id,
             applicationVersionId: versionId,
+            dockerType: target.type === 'docker' ? 'compose' : undefined,
             releaseName: kubernetesDeployment?.releaseName,
             valuesYaml: kubernetesDeployment?.valuesYaml ? toBase64(kubernetesDeployment.valuesYaml) : undefined,
         });
@@ -32476,7 +32513,9 @@ class DistrService {
     }
     /**
      * Returns the application and all versions that are newer than the given version ID. If no version ID is given,
-     * all versions are considered. The versions are ordered ascending according to the given strategy.
+     * all versions are considered. Archived versions are never returned, since nothing should be deployed to one, but
+     * a deployment can still be on one, so currentVersionId may name an archived version.
+     * The versions are ordered ascending according to the given strategy.
      * @param appId
      * @param currentVersionId
      */
@@ -32486,13 +32525,16 @@ class DistrService {
         if (!currentVersion && currentVersionId) {
             throw new Error('given version ID does not exist in this application');
         }
+        const strategy = this.strategyFor(app);
         const newerVersions = (app.versions || [])
             .filter((it) => {
+            if (it.archivedAt) {
+                return false;
+            }
             if (!currentVersion) {
                 return true;
             }
-            // surely there are fancier ways to deal with strategies but that's it for now
-            switch (this.latestVersionStrategy) {
+            switch (strategy) {
                 case 'semver':
                     return semver.gt(it.name, currentVersion.name, { loose: true });
                 case 'chronological':
@@ -32500,7 +32542,7 @@ class DistrService {
             }
         })
             .sort((a, b) => {
-            switch (this.latestVersionStrategy) {
+            switch (strategy) {
                 case 'semver':
                     return semver.compare(a.name, b.name, { loose: true });
                 case 'chronological':
@@ -32508,6 +32550,60 @@ class DistrService {
             }
         });
         return { app, newerVersions };
+    }
+    /**
+     * The application's own versioning strategy wins over the one this service was constructed with,
+     * which remains the fallback for an application that has none. The legacy strategy orders by
+     * SemVer while every name parses and by creation date as soon as one does not, which is how the
+     * versions of an application that predates the strategy were always ordered.
+     */
+    strategyFor(app) {
+        switch (app.versioningStrategy) {
+            case 'semver':
+            case 'chronological':
+                return app.versioningStrategy;
+            case 'legacy':
+                return (app.versions ?? []).every((it) => semver.valid(it.name, { loose: true }) !== null)
+                    ? 'semver'
+                    : 'chronological';
+            default:
+                return this.latestVersionStrategy;
+        }
+    }
+    /**
+     * Customers and partners only ever receive published and resolved advisories that mark an
+     * affected version, and a customer only those affecting a version they deployed or are
+     * entitled to.
+     */
+    async getAdvisories(filter = {}) {
+        return this.client.getAdvisories(filter);
+    }
+    async getAdvisory(advisoryId) {
+        return this.client.getAdvisory(advisoryId);
+    }
+    /**
+     * Returns who deployed or pulled an affected version: every customer for a vendor, their own
+     * customers for a partner and only their own deployments and pulls for a customer.
+     */
+    async getAdvisoryImpact(advisoryId) {
+        return this.client.getAdvisoryImpact(advisoryId);
+    }
+    /** Without an explicit status the advisory starts in `triage`. */
+    async createAdvisory(request) {
+        return this.client.createAdvisory(request);
+    }
+    async updateAdvisory(advisoryId, request) {
+        return this.client.updateAdvisory(advisoryId, request);
+    }
+    /** `published` and `resolved` make the advisory visible to the customers it affects. */
+    async setAdvisoryStatus(advisoryId, status) {
+        return this.client.patchAdvisory(advisoryId, { status });
+    }
+    async setAdvisorySeverity(advisoryId, severity) {
+        return this.client.patchAdvisory(advisoryId, { severity });
+    }
+    async commentOnAdvisory(advisoryId, content) {
+        return this.client.createAdvisoryComment(advisoryId, { content });
     }
 }
 
