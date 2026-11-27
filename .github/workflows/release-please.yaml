@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-please:
-    timeout-minutes: 1
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -20,7 +20,7 @@ jobs:
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          target-branch: ${{ github.ref_name }}
+          target-branch: main
       # Users reference the action by its major version, e.g. distr-sh/distr-create-version-action@v1
       - name: Move the major version tag
         if: ${{ steps.release.outputs.release_created == 'true' }}
