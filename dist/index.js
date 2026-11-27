@@ -32511,173 +32511,161 @@ class DistrService {
     }
 }
 
-/**
- * The main function for the action.
- *
- * @returns Resolves when the action is complete.
- */
 async function run() {
-    try {
-        const token = requiredInput('api-token');
-        const apiBase = getInput('api-base') || undefined;
-        const appId = requiredInput('application-id');
-        const versionName = requiredInput('version-name');
-        const updateDeployments = getBooleanInput('update-deployments');
-        const reuseDeploymentConfig = getBooleanInput('reuse-deployment-config');
-        if (updateDeployments) {
-            warnDeprecatedInput('update-deployments');
-        }
-        if (reuseDeploymentConfig) {
-            warnDeprecatedInput('reuse-deployment-config');
-        }
-        const distr = new DistrService({
-            apiBase: apiBase,
-            apiKey: token,
+  try {
+    const token = requiredInput("api-token");
+    const apiBase = getInput("api-base") || void 0;
+    const appId = requiredInput("application-id");
+    const versionName = requiredInput("version-name");
+    const updateDeployments = getBooleanInput("update-deployments");
+    const reuseDeploymentConfig = getBooleanInput("reuse-deployment-config");
+    if (updateDeployments) {
+      warnDeprecatedInput("update-deployments");
+    }
+    if (reuseDeploymentConfig) {
+      warnDeprecatedInput("reuse-deployment-config");
+    }
+    const distr = new DistrService({
+      apiBase,
+      apiKey: token
+    });
+    const composePath = getInput("compose-file");
+    const templatePath = getInput("template-file");
+    const templateFile = templatePath ? await fs$1.readFile(templatePath, "utf8") : void 0;
+    const linkTemplate = getInput("link-template") || void 0;
+    const resources = await parseAndResolveResources(getInput("resources"));
+    let versionId;
+    if (composePath !== "") {
+      const composeFile = await fs$1.readFile(composePath, "utf8");
+      const dockerParams = {
+        composeFile,
+        templateFile,
+        linkTemplate,
+        resources
+      };
+      const version = await distr.createDockerApplicationVersion(appId, versionName, dockerParams);
+      if (!version.id) {
+        throw new Error("Created version does not have an ID");
+      }
+      versionId = version.id;
+      setOutput("created-version-id", version.id);
+    } else {
+      const chartVersion = requiredInput("chart-version");
+      const chartType = requiredInput("chart-type");
+      const chartName = chartType === "repository" ? requiredInput("chart-name") : void 0;
+      const chartUrl = requiredInput("chart-url");
+      const baseValuesPath = getInput("base-values-file");
+      const baseValuesFile = baseValuesPath ? await fs$1.readFile(baseValuesPath, "utf8") : void 0;
+      const k8sParams = {
+        chartName,
+        chartVersion,
+        chartType,
+        chartUrl,
+        baseValuesFile,
+        templateFile,
+        linkTemplate,
+        resources
+      };
+      const version = await distr.createKubernetesApplicationVersion(appId, versionName, k8sParams);
+      if (!version.id) {
+        throw new Error("Created version does not have an ID");
+      }
+      versionId = version.id;
+      setOutput("created-version-id", version.id);
+    }
+    if (updateDeployments) {
+      info("Updating all deployments to the new version...");
+      const result = await distr.updateAllDeployments(appId, versionId, reuseDeploymentConfig);
+      info(`Updated ${result.updatedTargets.length} deployment target(s)`);
+      if (result.skippedTargets.length > 0) {
+        info(`Skipped ${result.skippedTargets.length} deployment target(s):`);
+        result.skippedTargets.forEach((target) => {
+          info(`  - ${target.deploymentTargetName}: ${target.reason}`);
         });
-        const composePath = getInput('compose-file');
-        const templatePath = getInput('template-file');
-        const templateFile = templatePath ? await fs$1.readFile(templatePath, 'utf8') : undefined;
-        const linkTemplate = getInput('link-template') || undefined;
-        const resources = await parseAndResolveResources(getInput('resources'));
-        let versionId;
-        if (composePath !== '') {
-            const composeFile = await fs$1.readFile(composePath, 'utf8');
-            const dockerParams = {
-                composeFile,
-                templateFile,
-                linkTemplate,
-                resources,
-            };
-            const version = await distr.createDockerApplicationVersion(appId, versionName, dockerParams);
-            if (!version.id) {
-                throw new Error('Created version does not have an ID');
-            }
-            versionId = version.id;
-            setOutput('created-version-id', version.id);
-        }
-        else {
-            const chartVersion = requiredInput('chart-version');
-            const chartType = requiredInput('chart-type');
-            const chartName = chartType === 'repository' ? requiredInput('chart-name') : undefined;
-            const chartUrl = requiredInput('chart-url');
-            const baseValuesPath = getInput('base-values-file');
-            const baseValuesFile = baseValuesPath ? await fs$1.readFile(baseValuesPath, 'utf8') : undefined;
-            const k8sParams = {
-                chartName,
-                chartVersion,
-                chartType,
-                chartUrl,
-                baseValuesFile,
-                templateFile,
-                linkTemplate,
-                resources,
-            };
-            const version = await distr.createKubernetesApplicationVersion(appId, versionName, k8sParams);
-            if (!version.id) {
-                throw new Error('Created version does not have an ID');
-            }
-            versionId = version.id;
-            setOutput('created-version-id', version.id);
-        }
-        if (updateDeployments) {
-            info('Updating all deployments to the new version...');
-            const result = await distr.updateAllDeployments(appId, versionId, reuseDeploymentConfig);
-            info(`Updated ${result.updatedTargets.length} deployment target(s)`);
-            if (result.skippedTargets.length > 0) {
-                info(`Skipped ${result.skippedTargets.length} deployment target(s):`);
-                result.skippedTargets.forEach((target) => {
-                    info(`  - ${target.deploymentTargetName}: ${target.reason}`);
-                });
-            }
-            const skippedDeployments = result.updatedTargets.flatMap((dt) => dt.skippedDeployments.map((d) => ({ deploymentTargetName: dt.deploymentTargetName, ...d })));
-            if (skippedDeployments.length > 0) {
-                info(`Skipped ${skippedDeployments.length} deployment(s):`);
-                skippedDeployments.forEach((d) => info(`  - ${d.deploymentTargetName}/${d.deploymentId}: ${d.reason}`));
-            }
-        }
+      }
+      const skippedDeployments = result.updatedTargets.flatMap(
+        (dt) => dt.skippedDeployments.map((d) => ({ deploymentTargetName: dt.deploymentTargetName, ...d }))
+      );
+      if (skippedDeployments.length > 0) {
+        info(`Skipped ${skippedDeployments.length} deployment(s):`);
+        skippedDeployments.forEach((d) => info(`  - ${d.deploymentTargetName}/${d.deploymentId}: ${d.reason}`));
+      }
     }
-    catch (error) {
-        // Fail the workflow run if an error occurs
-        if (error instanceof Error)
-            setFailed(error.message);
-    }
+  } catch (error) {
+    if (error instanceof Error) setFailed(error.message);
+  }
 }
 async function parseAndResolveResources(input) {
-    if (!input) {
-        return undefined;
+  if (!input) {
+    return void 0;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(input);
+  } catch {
+    throw new Error('Input "resources" is not valid JSON');
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error('Input "resources" must be a JSON array');
+  }
+  const resources = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const item = parsed[i];
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      throw new Error(`Resource [${i}]: must be a JSON object`);
     }
-    let parsed;
-    try {
-        parsed = JSON.parse(input);
+    if (!item.name || typeof item.name !== "string") {
+      throw new Error(`Resource [${i}]: "name" is required and must be a string`);
     }
-    catch {
-        throw new Error('Input "resources" is not valid JSON');
+    if (item.content !== void 0 && typeof item.content !== "string") {
+      throw new Error(`Resource [${i}] "${item.name}": "content" must be a string when provided`);
     }
-    if (!Array.isArray(parsed)) {
-        throw new Error('Input "resources" must be a JSON array');
+    if (item.path !== void 0 && typeof item.path !== "string") {
+      throw new Error(`Resource [${i}] "${item.name}": "path" must be a string when provided`);
     }
-    const resources = [];
-    for (let i = 0; i < parsed.length; i++) {
-        const item = parsed[i];
-        if (typeof item !== 'object' || item === null || Array.isArray(item)) {
-            throw new Error(`Resource [${i}]: must be a JSON object`);
-        }
-        if (!item.name || typeof item.name !== 'string') {
-            throw new Error(`Resource [${i}]: "name" is required and must be a string`);
-        }
-        if (item.content !== undefined && typeof item.content !== 'string') {
-            throw new Error(`Resource [${i}] "${item.name}": "content" must be a string when provided`);
-        }
-        if (item.path !== undefined && typeof item.path !== 'string') {
-            throw new Error(`Resource [${i}] "${item.name}": "path" must be a string when provided`);
-        }
-        if (item.visibleToCustomers !== undefined && typeof item.visibleToCustomers !== 'boolean') {
-            throw new Error(`Resource [${i}] "${item.name}": "visibleToCustomers" must be a boolean when provided`);
-        }
-        const hasContent = typeof item.content === 'string' && item.content.trim() !== '';
-        const hasPath = typeof item.path === 'string' && item.path.trim() !== '';
-        if (hasContent && hasPath) {
-            throw new Error(`Resource [${i}] "${item.name}": specify either "content" or "path", not both`);
-        }
-        if (!hasContent && !hasPath) {
-            throw new Error(`Resource [${i}] "${item.name}": either "content" or "path" is required`);
-        }
-        let content;
-        if (hasPath) {
-            try {
-                content = await fs$1.readFile(item.path, 'utf8');
-            }
-            catch (err) {
-                throw new Error(`Resource [${i}] "${item.name}": failed to read file "${item.path}": ${err instanceof Error ? err.message : err}`);
-            }
-        }
-        else {
-            content = item.content;
-        }
-        resources.push({
-            name: item.name,
-            content,
-            visibleToCustomers: item.visibleToCustomers ?? true,
-        });
+    if (item.visibleToCustomers !== void 0 && typeof item.visibleToCustomers !== "boolean") {
+      throw new Error(`Resource [${i}] "${item.name}": "visibleToCustomers" must be a boolean when provided`);
     }
-    return resources.length > 0 ? resources : undefined;
+    const hasContent = typeof item.content === "string" && item.content.trim() !== "";
+    const hasPath = typeof item.path === "string" && item.path.trim() !== "";
+    if (hasContent && hasPath) {
+      throw new Error(`Resource [${i}] "${item.name}": specify either "content" or "path", not both`);
+    }
+    if (!hasContent && !hasPath) {
+      throw new Error(`Resource [${i}] "${item.name}": either "content" or "path" is required`);
+    }
+    let content;
+    if (hasPath) {
+      try {
+        content = await fs$1.readFile(item.path, "utf8");
+      } catch (err) {
+        throw new Error(
+          `Resource [${i}] "${item.name}": failed to read file "${item.path}": ${err instanceof Error ? err.message : err}`
+        );
+      }
+    } else {
+      content = item.content;
+    }
+    resources.push({
+      name: item.name,
+      content,
+      visibleToCustomers: item.visibleToCustomers ?? true
+    });
+  }
+  return resources.length > 0 ? resources : void 0;
 }
 function warnDeprecatedInput(id) {
-    warning(`The ${id} input is deprecated and will be removed in a future major version. ` +
-        'Use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates');
+  warning(
+    `The ${id} input is deprecated and will be removed in a future major version. Use automatic updates instead, see https://distr.sh/docs/controllers/deployment/#automatic-updates`
+  );
 }
 function requiredInput(id) {
-    const val = getInput(id);
-    if (val === '') {
-        throw new Error(`Input ${id} is required`);
-    }
-    return val;
+  const val = getInput(id);
+  if (val === "") {
+    throw new Error(`Input ${id} is required`);
+  }
+  return val;
 }
 
-/**
- * The entrypoint for the action. This file simply imports and runs the action's
- * main logic.
- */
-/* istanbul ignore next */
 run();
 //# sourceMappingURL=index.js.map

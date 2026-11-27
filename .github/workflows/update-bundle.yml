@@ -5,12 +5,17 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
   update-bundle:
     name: Build and commit dist/
+    timeout-minutes: 5
     runs-on: ubuntu-latest
 
     steps:
@@ -19,24 +24,22 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
 
-      - name: Setup Node.js
+      - name: Setup node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 26.13
+          node-version-file: 'package.json'
           cache: pnpm
 
-      - name: Install Dependencies
-        run: pnpm i --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Build dist/ Directory
-        run: pnpm run bundle
+      - name: Build dist/ directory
+        run: pnpm run build
 
       - name: Commit updated bundle
         run: |
-          if [ "$(git diff --ignore-space-at-eol --text dist/ | wc -l)" -gt "0" ]; then
+          if [ -n "$(git status --porcelain dist/)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add dist/
