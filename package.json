@@ -19,16 +19,15 @@
   "exports": {
     ".": "./dist/index.js"
   },
+  "packageManager": "pnpm@12.23.0",
   "engines": {
-    "node": ">=20"
+    "node": "26.x"
   },
   "scripts": {
-    "bundle": "pnpm run format && pnpm run package",
-    "lint": "prettier --check .",
-    "format": "prettier --write .",
-    "local-action": "npx local-action . src/main.ts .env",
-    "package": "npx rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
-    "all": "pnpm run format && pnpm run lint && pnpm run package"
+    "build": "tsc && rollup --config rollup.config.ts",
+    "lint": "prettier --check --cache .",
+    "format": "prettier --write --list-different --cache .",
+    "local-action": "local-action . src/main.ts .env"
   },
   "dependencies": {
     "@actions/core": "^3.0.1",
@@ -38,14 +37,11 @@
     "@github/local-action": "^7.0.1",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
-    "@rollup/plugin-typescript": "^12.3.1",
     "@types/node": "^26.6.11",
+    "esbuild": "^0.28.2",
     "prettier": "^3.10.1",
     "rollup": "^4.68.8",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.68.8"
+    "rollup-plugin-esbuild": "^6.2.1",
+    "typescript": "^7.0.2"
   }
 }

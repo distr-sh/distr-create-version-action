@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  # started by regenerate-dist.yaml, since its commits made with the GITHUB_TOKEN start no workflow
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: 'package.json'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check formatting
+        run: pnpm run lint
+
+  # In TypeScript actions, `dist/index.js` is the code that runs when the action is referenced with `uses:`.
+  # It is built from the sources, so this job fails if the checked-in `dist/` does not match the build.
+  check-dist:
+    name: Check dist/
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: 'package.json'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build dist/ directory
+        run: pnpm run build
+      - name: Compare directories
+        id: diff
+        run: |
+          if [ ! -d dist/ ]; then
+            echo "Expected dist/ directory does not exist. See status below:"
+            ls -la ./
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain dist/)" ]; then
+            echo "Detected uncommitted changes after build. See status below:"
+            git status dist/
+            git diff --ignore-space-at-eol --text dist/
+            echo "You might want to run 'mise run build' and commit dist/"
+            exit 1
+          fi
+      - name: Upload expected dist/
+        if: ${{ failure() && steps.diff.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+
+  integration-test:
+    name: Integration Test
+    # Pull requests from forks get no secrets.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: 'package.json'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build dist/ directory
+        run: pnpm run build
+      - name: Create Distr Version
+        id: distr-create-version
+        uses: ./
+        with:
+          api-base: ${{ vars.DISTR_API_BASE }}
+          api-token: ${{ secrets.DISTR_TOKEN }}
+          application-id: ${{ vars.DISTR_APPLICATION_ID }}
+          version-name: ${{ github.sha }}-${{ github.run_id }}
+          link-template: 'http://localhost'
+          compose-file: ${{ github.workspace }}/action.yml
+          template-file: ${{ github.workspace }}/.env.example
+          resources: |
+            [
+              {
+                "name": "Inline Resource",
+                "content": "# Test Resource\n\nThis resource was created by the integration test.",
+                "visibleToCustomers": true
+              },
+              {
+                "name": "File Resource",
+                "path": "${{ github.workspace }}/.env.example",
+                "visibleToCustomers": false
+              }
+            ]
+          update-deployments: false
+      - name: Print application version ID
+        env:
+          VERSION_ID: ${{ steps.distr-create-version.outputs.created-version-id }}
+        run: echo "$VERSION_ID"

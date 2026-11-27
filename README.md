@@ -188,18 +188,29 @@ Each resource in the JSON array supports the following fields:
 
 ## Development
 
+The Node.js and pnpm versions are pinned in [`mise.toml`](./mise.toml) and [`package.json`](./package.json).
+
 ### Install dependencies
 
 ```shell
+mise install
 pnpm install
+```
+
+### Format and lint
+
+```shell
+mise run format
+mise run lint
 ```
 
 ### Build the JS bundle
 
 ```shell
-pnpm run all
+mise run build
 ```
 
+This type checks the sources with `tsc` and bundles them into `dist/` with rollup.
 The bundle has to be committed to the repository, as it is used by the action.
 
 #### (Optional) Test your action locally
@@ -232,7 +243,7 @@ file, [`.env.example`](./.env.example), and the
 ## Validate the Action
 
 You can now validate the action by referencing it in a workflow file. For
-example, [`ci.yml`](./.github/workflows/ci.yml) demonstrates how to reference an
+example, [`ci.yaml`](./.github/workflows/ci.yaml) demonstrates how to reference an
 action in the same repository.
 
 ```yaml
