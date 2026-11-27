@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.0](https://github.com/distr-sh/distr-create-version-action/compare/create-distr-version-action-v1.7.0...create-distr-version-action-v1.8.0) (2026-11-27)
+
+
+### Features
+
+* add extra-headers input for hubs behind an auth proxy ([#302](https://github.com/distr-sh/distr-create-version-action/issues/302)) ([0fb12c2](https://github.com/distr-sh/distr-create-version-action/commit/0fb12c2cf497195b1a1fb66844a606abb5b5e35e))
+
+
+### Other
+
+* **deps:** update amannn/action-semantic-pull-request action to v6.1.4 ([#307](https://github.com/distr-sh/distr-create-version-action/issues/307)) ([081d9ce](https://github.com/distr-sh/distr-create-version-action/commit/081d9ce6b4d555b0a29ff3e81a21c947af4f12f4))
+
 ## [1.7.0](https://github.com/distr-sh/distr-create-version-action/compare/create-distr-version-action-v1.6.2...create-distr-version-action-v1.7.0) (2026-11-27)
 
 
