@@ -5,9 +5,9 @@
       "name": "Debug Action",
       "type": "node",
       "request": "launch",
-      "runtimeExecutable": "npx",
+      "runtimeExecutable": "pnpm",
       "cwd": "${workspaceRoot}",
-      "args": ["local-action", ".", "src/main.ts", ".env"],
+      "args": ["exec", "local-action", ".", "src/main.ts", ".env"],
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**", "node_modules/**"]
     }

@@ -2,9 +2,10 @@
 
 import commonjs from '@rollup/plugin-commonjs';
 import nodeResolve from '@rollup/plugin-node-resolve';
-import typescript from '@rollup/plugin-typescript';
+import type {RollupOptions} from 'rollup';
+import esbuild from 'rollup-plugin-esbuild';
 
-const config = {
+const config: RollupOptions = {
   input: 'src/index.ts',
   output: {
     esModule: true,
@@ -12,7 +13,8 @@ const config = {
     format: 'es',
     sourcemap: true,
   },
-  plugins: [typescript(), nodeResolve(), commonjs()],
+  // TypeScript 7 has no compiler API for rollup, so esbuild strips the types and `tsc --noEmit` checks them.
+  plugins: [esbuild({target: 'node24'}), nodeResolve(), commonjs()],
 };
 
 export default config;
