@@ -28014,11 +28014,11 @@ var HttpCodes;
     HttpCodes[HttpCodes["ServiceUnavailable"] = 503] = "ServiceUnavailable";
     HttpCodes[HttpCodes["GatewayTimeout"] = 504] = "GatewayTimeout";
 })(HttpCodes || (HttpCodes = {}));
-var Headers;
+var Headers$1;
 (function (Headers) {
     Headers["Accept"] = "accept";
     Headers["ContentType"] = "content-type";
-})(Headers || (Headers = {}));
+})(Headers$1 || (Headers$1 = {}));
 var MediaTypes;
 (function (MediaTypes) {
     MediaTypes["ApplicationJson"] = "application/json";
@@ -28149,6 +28149,38 @@ var ExitCode;
     ExitCode[ExitCode["Failure"] = 1] = "Failure";
 })(ExitCode || (ExitCode = {}));
 /**
+ * Registers a secret which will get masked from logs
+ *
+ * @param secret - Value of the secret to be masked
+ * @remarks
+ * This function instructs the Actions runner to mask the specified value in any
+ * logs produced during the workflow run. Once registered, the secret value will
+ * be replaced with asterisks (***) whenever it appears in console output, logs,
+ * or error messages.
+ *
+ * This is useful for protecting sensitive information such as:
+ * - API keys
+ * - Access tokens
+ * - Authentication credentials
+ * - URL parameters containing signatures (SAS tokens)
+ *
+ * Note that masking only affects future logs; any previous appearances of the
+ * secret in logs before calling this function will remain unmasked.
+ *
+ * @example
+ * ```typescript
+ * // Register an API token as a secret
+ * const apiToken = "abc123xyz456";
+ * setSecret(apiToken);
+ *
+ * // Now any logs containing this value will show *** instead
+ * console.log(`Using token: ${apiToken}`); // Outputs: "Using token: ***"
+ * ```
+ */
+function setSecret(secret) {
+    issueCommand('add-mask', {}, secret);
+}
+/**
  * Gets the value of an input.
  * Unless trimWhitespace is set to false in InputOptions, the value is also trimmed.
  * Returns an empty string if the value is not defined.
@@ -28244,6 +28276,7 @@ class Client {
         this.config = {
             apiKey: config.apiKey,
             apiBase: config.apiBase || defaultClientConfig.apiBase,
+            headers: config.headers,
         };
         if (!this.config.apiBase.endsWith('/')) {
             this.config.apiBase += '/';
@@ -28276,10 +28309,7 @@ class Client {
         const path = `applications/${applicationId}/versions`;
         const response = await fetch(`${this.config.apiBase}${path}`, {
             method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                Authorization: `AccessToken ${this.config.apiKey}`,
-            },
+            headers: this.headers(),
             body: formData,
         });
         return this.handleResponse(response, 'POST', path);
@@ -28293,8 +28323,8 @@ class Client {
     async getDeploymentTarget(deploymentTargetId) {
         return this.get(`deployment-targets/${deploymentTargetId}`);
     }
-    async createDeploymentTarget(deploymentTarget) {
-        return this.post('deployment-targets', deploymentTarget);
+    async createDeploymentTarget(request) {
+        return this.post('deployment-targets', request);
     }
     async createOrUpdateDeployment(deploymentRequest) {
         return this.put('deployments', deploymentRequest);
@@ -28302,39 +28332,77 @@ class Client {
     async createAccessForDeploymentTarget(deploymentTargetId) {
         return this.post(`deployment-targets/${deploymentTargetId}/access-request`);
     }
+    async cancelReconnectForDeploymentTarget(deploymentTargetId) {
+        await this.send('DELETE', `deployment-targets/${deploymentTargetId}/access-request`);
+    }
+    async getAdvisories(filter = {}) {
+        const params = new URLSearchParams();
+        for (const status of filter.status ?? []) {
+            params.append('status', status);
+        }
+        for (const severity of filter.severity ?? []) {
+            params.append('severity', severity);
+        }
+        for (const tag of filter.tag ?? []) {
+            params.append('tag', tag);
+        }
+        const query = params.toString();
+        return this.get(`advisories${query ? `?${query}` : ''}`);
+    }
+    async getAdvisory(advisoryId) {
+        return this.get(`advisories/${advisoryId}`);
+    }
+    /** Spans undisclosed advisories and is therefore available to the vendor organization only. */
+    async getAdvisoryTags() {
+        return this.get('advisories/tags');
+    }
+    async getAdvisoryImpact(advisoryId) {
+        return this.get(`advisories/${advisoryId}/impact`);
+    }
+    async createAdvisory(request) {
+        return this.post('advisories', request);
+    }
+    async updateAdvisory(advisoryId, request) {
+        return this.put(`advisories/${advisoryId}`, request);
+    }
+    async patchAdvisory(advisoryId, request) {
+        return this.patch(`advisories/${advisoryId}`, request);
+    }
+    async createAdvisoryComment(advisoryId, request) {
+        return this.post(`advisories/${advisoryId}/comments`, request);
+    }
     async get(path) {
         const response = await fetch(`${this.config.apiBase}${path}`, {
             method: 'GET',
-            headers: {
-                Accept: 'application/json',
-                Authorization: `AccessToken ${this.config.apiKey}`,
-            },
+            headers: this.headers(),
         });
         return await this.handleResponse(response, 'GET', path);
     }
     async post(path, body) {
-        const response = await fetch(`${this.config.apiBase}${path}`, {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                Authorization: `AccessToken ${this.config.apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-        });
-        return await this.handleResponse(response, 'POST', path);
+        return this.send('POST', path, body);
     }
     async put(path, body) {
+        return this.send('PUT', path, body);
+    }
+    async patch(path, body) {
+        return this.send('PATCH', path, body);
+    }
+    async send(method, path, body) {
         const response = await fetch(`${this.config.apiBase}${path}`, {
-            method: 'PUT',
-            headers: {
-                Accept: 'application/json',
-                Authorization: `AccessToken ${this.config.apiKey}`,
-                'Content-Type': 'application/json',
-            },
+            method,
+            headers: this.headers({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(body),
         });
-        return await this.handleResponse(response, 'PUT', path);
+        return await this.handleResponse(response, method, path);
+    }
+    headers(requestHeaders = {}) {
+        const headers = new Headers(this.config.headers);
+        headers.set('Accept', 'application/json');
+        for (const [name, value] of Object.entries(requestHeaders)) {
+            headers.set(name, value);
+        }
+        headers.set('Authorization', `AccessToken ${this.config.apiKey}`);
+        return headers;
     }
     async handleResponse(response, method, path) {
         if (response.status < 200 || response.status >= 300) {
@@ -31202,7 +31270,7 @@ class DistrService {
      * base URL can be set. Optionally, a strategy for determining the latest version of an application can be specified –
      * the default is semantic versioning.
      * @param config ClientConfig containing at least an API key and optionally an API base URL
-     * @param latestVersionStrategy Strategy for determining the latest version of an application (default: 'semver')
+     * @param latestVersionStrategy Strategy for applications that do not define one themselves (default: 'semver')
      */
     constructor(config, latestVersionStrategy = 'semver') {
         this.latestVersionStrategy = latestVersionStrategy;
@@ -31266,15 +31334,16 @@ class DistrService {
             type: target.type,
             namespace: target.kubernetes?.namespace,
             scope: target.kubernetes?.scope,
-            deployments: [],
             metricsEnabled: false,
             imageCleanupEnabled: false,
             deploymentLogsEnabled: false,
             autohealEnabled: false,
+            automaticUpdatesEnabled: true,
         });
         await this.client.createOrUpdateDeployment({
             deploymentTargetId: deploymentTarget.id,
             applicationVersionId: versionId,
+            dockerType: target.type === 'docker' ? 'compose' : undefined,
             releaseName: kubernetesDeployment?.releaseName,
             valuesYaml: kubernetesDeployment?.valuesYaml ? toBase64(kubernetesDeployment.valuesYaml) : undefined,
         });
@@ -31412,7 +31481,9 @@ class DistrService {
     }
     /**
      * Returns the application and all versions that are newer than the given version ID. If no version ID is given,
-     * all versions are considered. The versions are ordered ascending according to the given strategy.
+     * all versions are considered. Archived versions are never returned, since nothing should be deployed to one, but
+     * a deployment can still be on one, so currentVersionId may name an archived version.
+     * The versions are ordered ascending according to the given strategy.
      * @param appId
      * @param currentVersionId
      */
@@ -31422,13 +31493,16 @@ class DistrService {
         if (!currentVersion && currentVersionId) {
             throw new Error('given version ID does not exist in this application');
         }
+        const strategy = this.strategyFor(app);
         const newerVersions = (app.versions || [])
             .filter((it) => {
+            if (it.archivedAt) {
+                return false;
+            }
             if (!currentVersion) {
                 return true;
             }
-            // surely there are fancier ways to deal with strategies but that's it for now
-            switch (this.latestVersionStrategy) {
+            switch (strategy) {
                 case 'semver':
                     return semver.gt(it.name, currentVersion.name, { loose: true });
                 case 'chronological':
@@ -31436,7 +31510,7 @@ class DistrService {
             }
         })
             .sort((a, b) => {
-            switch (this.latestVersionStrategy) {
+            switch (strategy) {
                 case 'semver':
                     return semver.compare(a.name, b.name, { loose: true });
                 case 'chronological':
@@ -31444,6 +31518,60 @@ class DistrService {
             }
         });
         return { app, newerVersions };
+    }
+    /**
+     * The application's own versioning strategy wins over the one this service was constructed with,
+     * which remains the fallback for an application that has none. The legacy strategy orders by
+     * SemVer while every name parses and by creation date as soon as one does not, which is how the
+     * versions of an application that predates the strategy were always ordered.
+     */
+    strategyFor(app) {
+        switch (app.versioningStrategy) {
+            case 'semver':
+            case 'chronological':
+                return app.versioningStrategy;
+            case 'legacy':
+                return (app.versions ?? []).every((it) => semver.valid(it.name, { loose: true }) !== null)
+                    ? 'semver'
+                    : 'chronological';
+            default:
+                return this.latestVersionStrategy;
+        }
+    }
+    /**
+     * Customers and partners only ever receive published and resolved advisories that mark an
+     * affected version, and a customer only those affecting a version they deployed or are
+     * entitled to.
+     */
+    async getAdvisories(filter = {}) {
+        return this.client.getAdvisories(filter);
+    }
+    async getAdvisory(advisoryId) {
+        return this.client.getAdvisory(advisoryId);
+    }
+    /**
+     * Returns who deployed or pulled an affected version: every customer for a vendor, their own
+     * customers for a partner and only their own deployments and pulls for a customer.
+     */
+    async getAdvisoryImpact(advisoryId) {
+        return this.client.getAdvisoryImpact(advisoryId);
+    }
+    /** Without an explicit status the advisory starts in `triage`. */
+    async createAdvisory(request) {
+        return this.client.createAdvisory(request);
+    }
+    async updateAdvisory(advisoryId, request) {
+        return this.client.updateAdvisory(advisoryId, request);
+    }
+    /** `published` and `resolved` make the advisory visible to the customers it affects. */
+    async setAdvisoryStatus(advisoryId, status) {
+        return this.client.patchAdvisory(advisoryId, { status });
+    }
+    async setAdvisorySeverity(advisoryId, severity) {
+        return this.client.patchAdvisory(advisoryId, { severity });
+    }
+    async commentOnAdvisory(advisoryId, content) {
+        return this.client.createAdvisoryComment(advisoryId, { content });
     }
 }
 
@@ -31456,6 +31584,7 @@ async function run() {
     try {
         const token = requiredInput('api-token');
         const apiBase = getInput('api-base') || undefined;
+        const headers = parseExtraHeaders(getInput('extra-headers'));
         const appId = requiredInput('application-id');
         const versionName = requiredInput('version-name');
         const updateDeployments = getBooleanInput('update-deployments');
@@ -31469,6 +31598,7 @@ async function run() {
         const distr = new DistrService({
             apiBase: apiBase,
             apiKey: token,
+            headers,
         });
         const composePath = getInput('compose-file');
         const templatePath = getInput('template-file');
@@ -31597,6 +31727,33 @@ async function parseAndResolveResources(input) {
         });
     }
     return resources.length > 0 ? resources : undefined;
+}
+/**
+ * Parses "Name: value" lines into a header map and masks each value in the logs.
+ */
+function parseExtraHeaders(input) {
+    const headers = {};
+    for (const line of input.split(/\r?\n/)) {
+        if (line.trim() === '') {
+            continue;
+        }
+        const separator = line.indexOf(':');
+        const name = separator > 0 ? line.slice(0, separator).trim() : '';
+        const value = separator > 0 ? line.slice(separator + 1).trim() : '';
+        if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name) || value === '') {
+            throw new Error('extra-headers: every line must be "Name: value"');
+        }
+        setSecret(value);
+        const lowerName = name.toLowerCase();
+        if (lowerName === 'authorization') {
+            throw new Error('extra-headers: Authorization is set from api-token and cannot be overridden');
+        }
+        if (Object.keys(headers).some((key) => key.toLowerCase() === lowerName)) {
+            throw new Error(`extra-headers: duplicate header ${name}`);
+        }
+        headers[name] = value;
+    }
+    return Object.keys(headers).length > 0 ? headers : undefined;
 }
 function warnDeprecatedInput(id) {
     warning(`The ${id} input is deprecated and will be removed in a future major version. ` +
