@@ -20,6 +20,7 @@ export async function run(): Promise<void> {
   try {
     const token = requiredInput('api-token');
     const apiBase = core.getInput('api-base') || undefined;
+    const headers = parseExtraHeaders(core.getInput('extra-headers'));
     const appId = requiredInput('application-id');
     const versionName = requiredInput('version-name');
     const updateDeployments = core.getBooleanInput('update-deployments');
@@ -34,6 +35,7 @@ export async function run(): Promise<void> {
     const distr = new DistrService({
       apiBase: apiBase,
       apiKey: token,
+      headers,
     });
 
     const composePath = core.getInput('compose-file');
@@ -178,6 +180,34 @@ async function parseAndResolveResources(input: string): Promise<Resource[] | und
   }
 
   return resources.length > 0 ? resources : undefined;
+}
+
+/**
+ * Parses "Name: value" lines into a header map and masks each value in the logs.
+ */
+export function parseExtraHeaders(input: string): Record<string, string> | undefined {
+  const headers: Record<string, string> = {};
+  for (const line of input.split(/\r?\n/)) {
+    if (line.trim() === '') {
+      continue;
+    }
+    const separator = line.indexOf(':');
+    const name = separator > 0 ? line.slice(0, separator).trim() : '';
+    const value = separator > 0 ? line.slice(separator + 1).trim() : '';
+    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name) || value === '') {
+      throw new Error('extra-headers: every line must be "Name: value"');
+    }
+    core.setSecret(value);
+    const lowerName = name.toLowerCase();
+    if (lowerName === 'authorization') {
+      throw new Error('extra-headers: Authorization is set from api-token and cannot be overridden');
+    }
+    if (Object.keys(headers).some((key) => key.toLowerCase() === lowerName)) {
+      throw new Error(`extra-headers: duplicate header ${name}`);
+    }
+    headers[name] = value;
+  }
+  return Object.keys(headers).length > 0 ? headers : undefined;
 }
 
 function warnDeprecatedInput(id: string): void {

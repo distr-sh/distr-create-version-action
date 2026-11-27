@@ -1,2 +1,4 @@
 allowBuilds:
   esbuild: false
+minimumReleaseAgeExclude:
+  - '@distr-sh/distr-sdk@4.12.0'

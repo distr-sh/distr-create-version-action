@@ -16,6 +16,12 @@ inputs:
     description: |
       Personal Access Token used to authenticate with the Distr API, also see https://distr.sh/docs/integrations/personal-access-token/
     required: true
+  extra-headers:
+    description: |
+      Extra HTTP headers sent with every Distr API request, one "Name: value" per line,
+      e.g. the service-token headers of an authenticating proxy (such as Cloudflare Access) in front of a self-hosted Distr.
+      Values are masked in the logs. They cannot override the Authorization header set from api-token.
+    required: false
   application-id:
     description: |
       ID of the application that the version will be created in.
