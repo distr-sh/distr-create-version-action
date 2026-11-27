@@ -32,20 +32,20 @@
   },
   "dependencies": {
     "@actions/core": "^3.0.1",
-    "@distr-sh/distr-sdk": "^2.23.0"
+    "@distr-sh/distr-sdk": "^2.26.2"
   },
   "devDependencies": {
     "@github/local-action": "^7.0.1",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
-    "@rollup/plugin-typescript": "^12.3.0",
-    "@types/node": "^26.0.0",
-    "prettier": "^3.8.4",
-    "rollup": "^4.61.1",
+    "@rollup/plugin-typescript": "^12.3.1",
+    "@types/node": "^26.6.11",
+    "prettier": "^3.10.1",
+    "rollup": "^4.68.8",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.61.1"
+    "@rollup/rollup-linux-x64-gnu": "^4.68.8"
   }
 }
