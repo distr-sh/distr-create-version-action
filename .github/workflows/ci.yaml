@@ -9,6 +9,8 @@ on:
   push:
     branches:
       - main
+  # started by regenerate-dist.yaml, since its commits made with the GITHUB_TOKEN start no workflow
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
@@ -82,7 +84,7 @@ jobs:
   integration-test:
     name: Integration Test
     # Pull requests from forks get no secrets.
-    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:

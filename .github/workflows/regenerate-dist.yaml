@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Regenerate dist/
+
+on:
+  pull_request:
+    paths:
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - src/**
+      - rollup.config.ts
+      - tsconfig.json
+      - .github/workflows/regenerate-dist.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Regenerate
+    # Renovate changes the dependencies without rebuilding dist/, so the push job below commits it.
+    # On all other pull requests, the check-dist job in ci.yaml fails instead.
+    if: startsWith(github.head_ref, 'renovate/')
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: 'package.json'
+          cache: pnpm
+      - name: Build dist/ directory
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+      - name: Upload dist/
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: |
+            dist/index.js
+            dist/index.js.map
+
+  push:
+    name: Push
+    needs: generate
+    # runs no code from the pull request, since it holds a token that can push to the repository
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - name: Download dist/
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - name: Commit changed files
+        id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          changed=false
+          for file in dist/index.js dist/index.js.map; do
+            # the default media type rejects files larger than 1 MB, the object media type returns their sha
+            sha=$(gh api -H 'Accept: application/vnd.github.object+json' \
+              "repos/$GITHUB_REPOSITORY/contents/$file?ref=$BRANCH" --jq .sha)
+            [[ "$sha" == "$(git hash-object "$file")" ]] && continue
+            base64 -w0 "$file" > content
+            gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/$file" \
+              -f message="chore: regenerate $file" -f branch="$BRANCH" -f sha="$sha" -F content=@content
+            changed=true
+          done
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+      # A commit with the GITHUB_TOKEN starts no workflow, so CI is started on the new commit here.
+      - name: Start CI
+        if: ${{ steps.commit.outputs.changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref }}
+        run: gh workflow run ci.yaml --ref "$BRANCH"
