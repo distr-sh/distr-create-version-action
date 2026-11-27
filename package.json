@@ -16,32 +16,23 @@
   "keywords": [
     "actions"
   ],
-  "exports": {
-    ".": "./dist/index.js"
-  },
   "packageManager": "pnpm@12.23.0",
   "engines": {
     "node": "26.x"
   },
   "scripts": {
-    "build": "tsc && rollup --config rollup.config.ts",
+    "build": "tsc && esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/index.cjs",
     "lint": "prettier --check --cache .",
-    "format": "prettier --write --list-different --cache .",
-    "local-action": "local-action . src/main.ts .env"
+    "format": "prettier --write --list-different --cache ."
   },
   "dependencies": {
     "@actions/core": "^3.0.1",
     "@distr-sh/distr-sdk": "^4.12.0"
   },
   "devDependencies": {
-    "@github/local-action": "^7.0.1",
-    "@rollup/plugin-commonjs": "^29.0.3",
-    "@rollup/plugin-node-resolve": "^16.0.3",
     "@types/node": "^26.6.11",
     "esbuild": "^0.28.2",
     "prettier": "^3.10.1",
-    "rollup": "^4.68.8",
-    "rollup-plugin-esbuild": "^6.2.1",
     "typescript": "^7.0.2"
   }
 }

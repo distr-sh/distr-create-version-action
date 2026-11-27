@@ -49,9 +49,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
-          path: |
-            dist/index.js
-            dist/index.js.map
+          path: dist/index.cjs
 
   push:
     name: Push
@@ -68,29 +66,19 @@ jobs:
         with:
           name: dist
           path: dist
-      - name: Commit changed files
-        id: commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ github.head_ref }}
-        run: |
-          changed=false
-          for file in dist/index.js dist/index.js.map; do
-            # the default media type rejects files larger than 1 MB, the object media type returns their sha
-            sha=$(gh api -H 'Accept: application/vnd.github.object+json' \
-              "repos/$GITHUB_REPOSITORY/contents/$file?ref=$BRANCH" --jq .sha)
-            [[ "$sha" == "$(git hash-object "$file")" ]] && continue
-            base64 -w0 "$file" > content
-            gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/$file" \
-              -f message="chore: regenerate $file" -f branch="$BRANCH" -f sha="$sha" -F content=@content
-            changed=true
-          done
-          echo "changed=$changed" >> "$GITHUB_OUTPUT"
-      # A commit with the GITHUB_TOKEN starts no workflow, so CI is started on the new commit here.
-      - name: Start CI
-        if: ${{ steps.commit.outputs.changed == 'true' }}
+      - name: Commit dist/index.cjs
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           BRANCH: ${{ github.head_ref }}
-        run: gh workflow run ci.yaml --ref "$BRANCH"
+          FILE: dist/index.cjs
+        run: |
+          # the default media type rejects files larger than 1 MB, the object media type returns their sha
+          sha=$(gh api -H 'Accept: application/vnd.github.object+json' \
+            "repos/$GH_REPO/contents/$FILE?ref=$BRANCH" --jq .sha)
+          [[ "$sha" == "$(git hash-object "$FILE")" ]] && exit 0
+          base64 -w0 "$FILE" > content
+          gh api --method PUT "repos/$GH_REPO/contents/$FILE" \
+            -f message="chore: regenerate $FILE" -f branch="$BRANCH" -f sha="$sha" -F content=@content
+          # a commit with the GITHUB_TOKEN starts no workflow, so CI is started on the new commit here
+          gh workflow run ci.yaml --ref "$BRANCH"
