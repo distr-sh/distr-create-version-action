@@ -218,35 +218,17 @@ mise run lint
 mise run build
 ```
 
-This type checks the sources with `tsc` and bundles them into `dist/` with rollup.
+This type checks the sources with `tsc` and bundles them into `dist/index.cjs` with esbuild.
 The bundle has to be committed to the repository, as it is used by the action.
 
-#### (Optional) Test your action locally
+#### (Optional) Run your action locally
 
-The [`@github/local-action`](https://github.com/github/local-action) utility can
-be used to test your action locally. It is a simple command-line tool that
-"stubs" (or simulates) the GitHub Actions Toolkit. This way, you can run your
-TypeScript action locally without having to commit and push your changes to a
-repository.
+Copy [`.env.example`](./.env.example) to `.env`, fill in the inputs and run the bundle with Node.js:
 
-The `local-action` utility can be run in the following ways:
-
-- Visual Studio Code Debugger
-
-  Make sure to review and, if needed, update
-  [`.vscode/launch.json`](./.vscode/launch.json)
-
-- Terminal/Command Prompt
-
-  ```shell
-  pnpm exec local-action . src/main.ts .env
-  ```
-
-You can provide a `.env` file to the `local-action` CLI to set environment
-variables used by the GitHub Actions Toolkit. For example, setting inputs and
-event payload data used by your action. For more information, see the example
-file, [`.env.example`](./.env.example), and the
-[GitHub Actions Documentation](https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables).
+```shell
+mise run build
+node --env-file=.env dist/index.cjs
+```
 
 ## Validate the Action
 

@@ -39,7 +39,7 @@ jobs:
       - name: Check formatting
         run: pnpm run lint
 
-  # In TypeScript actions, `dist/index.js` is the code that runs when the action is referenced with `uses:`.
+  # In TypeScript actions, `dist/index.cjs` is the code that runs when the action is referenced with `uses:`.
   # It is built from the sources, so this job fails if the checked-in `dist/` does not match the build.
   check-dist:
     name: Check dist/
