@@ -11,8 +11,3 @@ run = 'pnpm run lint'
 
 [tasks.format]
 run = ['pnpm dedupe', 'pnpm run format']
-
-[tasks."lint:renovate-config"]
-run = "pnpm dlx --package renovate renovate-config-validator"
-description = "Lint the renovate.json config file"
-sources = ["renovate.json"]
