@@ -83,8 +83,12 @@ jobs:
 
   integration-test:
     name: Integration Test
-    # Pull requests from forks get no secrets.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    # Pull requests from forks get no secrets, and the release pull request only bumps the version and the changelog.
+    if: >-
+      ${{ github.event_name != 'pull_request' || (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.head_ref != 'release-please--branches--main'
+      ) }}
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
